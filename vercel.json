@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "build/web/**": {
+      "runtime": "@vercel/static"
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/build/web/$1"
+    }
+  ]
+}
