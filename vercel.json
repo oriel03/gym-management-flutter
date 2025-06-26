@@ -1,14 +1,9 @@
 {
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
   "builds": [
     {
       "src": "pubspec.yaml",
-      "use": "@peterpme/vercel-flutter"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "use": "@vercel/static-build"
     }
   ]
 }
