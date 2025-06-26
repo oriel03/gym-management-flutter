@@ -1,16 +1,26 @@
-# gym_management_app
+gym-management-flutter
+Sistema de gestión para Valhalla Gym
+Descripción
+Una aplicación Flutter para la gestión completa de un gimnasio, incluyendo:
 
-A new Flutter project.
+Gestión de miembros
+Control de acceso
+Planes de entrenamiento
+Pagos y suscripciones
 
-## Getting Started
+Tecnologías
 
-This project is a starting point for a Flutter application.
+Flutter
+Supabase (Backend)
+Authentication
 
-A few resources to get you started if this is your first Flutter project:
+Getting Started
+Este proyecto es un punto de partida para una aplicación Flutter.
+Recursos útiles:
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Lab: Write your first Flutter app
+Cookbook: Useful Flutter samples
+Flutter documentation
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Deploy
+La aplicación está configurada para deployment en Vercel.
