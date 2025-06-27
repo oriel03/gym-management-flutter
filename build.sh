@@ -1,18 +1,30 @@
 #!/bin/bash
 
-# Define la versión de Flutter que quieres usar
-FLUTTER_VERSION="3.19.6" # Puedes usar la versión que quieras
+# Define la versión de Flutter que quieres usar (la que requiere tu pubspec.yaml)
+FLUTTER_VERSION="3.8.0-124.0.dev"
 
-# Descarga el SDK de Flutter
-git clone https://github.com/flutter/flutter.git --branch $FLUTTER_VERSION
+# Clona el repositorio de Flutter
+git clone https://github.com/flutter/flutter.git
+
+# Mueve el directorio de Flutter
+cd flutter
+
+# Cambia a la versión específica requerida por tu proyecto
+git checkout $FLUTTER_VERSION
+
+# Vuelve al directorio raíz del proyecto
+cd ..
 
 # Agrega Flutter al PATH
 export PATH="$PATH:$(pwd)/flutter/bin"
 
-# Verifica que Flutter esté disponible
+# Verifica que Flutter esté disponible y en la versión correcta
 flutter --version
 
-# Obtiene las dependencias
+# Acepta las licencias de Android (esto puede ser necesario)
+flutter doctor --android-licenses --no-license-check
+
+# Obtiene las dependencias del proyecto
 flutter pub get
 
 # Construye la aplicación web
