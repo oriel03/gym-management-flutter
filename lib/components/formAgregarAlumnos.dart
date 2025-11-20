@@ -1,5 +1,8 @@
+// ignore: file_names
 import 'package:flutter/material.dart';
+import 'package:gym_management_app/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:gym_management_app/models/plan.dart';
 
 class FormAgregarAlumno extends StatefulWidget {
   final String profesorId;
@@ -12,6 +15,7 @@ class FormAgregarAlumno extends StatefulWidget {
 
 class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
   final _formKey = GlobalKey<FormState>();
+  final _supabaseService = SupabaseService();
 
   // Controladores
   final _nameController = TextEditingController();
@@ -21,20 +25,22 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
   final _dniController = TextEditingController();
   final _emergencyContactController = TextEditingController();
   final _emergencyPhoneController = TextEditingController();
+  final TextEditingController _precioController = TextEditingController();
 
   // Estados
   bool _isLoading = false;
   DateTime? _selectedDate;
-  String? _selectedPlanId;
-  List<Map<String, dynamic>> _planes = [];
-  String _selectedSchedule = 'Mañana';
-
+  List<Plan> _planes = [];
+  final String _selectedSchedule = 'Mañana';
   final List<String> _schedules = ['Mañana', 'Tarde', 'Noche'];
+
+  String? _selectedPlanId;
+  bool _isLoadingPlans = true;
 
   @override
   void initState() {
     super.initState();
-    _loadPlanes();
+    _loadPlans();
   }
 
   @override
@@ -50,21 +56,36 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
   }
 
   // Cargar planes disponibles
-  Future<void> _loadPlanes() async {
+  Future<void> _loadPlans() async {
+    setState(() {
+      _isLoadingPlans = true;
+    });
     try {
-      final response = await Supabase.instance.client
-          .from('plans')
-          .select('id, name, monthly_price')
-          .eq('is_active', true);
-
-      if (mounted) {
-        setState(() {
-          _planes = List<Map<String, dynamic>>.from(response);
-        });
-      }
+      final planes = await _supabaseService.getPlans();
+      setState(() {
+        _isLoadingPlans = false;
+        _planes = planes;
+      });
     } catch (e) {
-      _showSnackBar('Error al cargar planes: $e');
+      setState(() {
+        _isLoadingPlans = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al cargar planes: $e')));
     }
+  }
+
+  void _onPlanSelected(String? planId) {
+    setState(() {
+      _selectedPlanId = planId;
+      if (planId != null) {
+        final plan = _planes.firstWhere((plan) => plan.id == planId);
+        _precioController.text = plan.monthlyPrice.toStringAsFixed(0);
+      } else {
+        _precioController.clear();
+      }
+    });
   }
 
   // Manejar envío del formulario
@@ -272,8 +293,10 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
               // Horario
               _buildScheduleDropdown(),
               const SizedBox(height: 16),
-
+              // Precio mensual editable
+              _buildPrecioField(),
               // Botón de enviar
+              const SizedBox(height: 16),
               _buildSubmitButton(),
             ],
           ),
@@ -376,16 +399,87 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
         DropdownMenuItem<String>(value: null, child: Text('Sin plan asignado')),
         ..._planes.map(
           (plan) => DropdownMenuItem<String>(
-            value: plan['id'],
-            child: Text('${plan['name']} - \$${plan['monthly_price']}'),
+            value: plan.id,
+            child: Text(
+              '${plan.name} dias/semana - \$${plan.monthlyPrice.toStringAsFixed(0)}',
+            ),
           ),
         ),
       ],
-      onChanged: _isLoading
-          ? null
-          : (value) {
-              setState(() => _selectedPlanId = value);
-            },
+      onChanged: _isLoading ? null : _onPlanSelected,
+    );
+  }
+
+  Future<void> _saveStudent() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+    try {
+      await _supabaseService.addStudent(
+        name: _nameController.text.trim(),
+        lastName: _lastNameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+        dni: _dniController.text.trim(),
+        dateOfBirth: _selectedDate,
+        emergencyContact: _emergencyContactController.text.trim(),
+        emergencyPhone: _emergencyPhoneController.text.trim(),
+        planId: _selectedPlanId,
+        precioMensual: double.parse(_precioController.text),
+        schedule: _selectedSchedule,
+        profesorId: widget.profesorId,
+      );
+      if (!mounted) {
+        Navigator.pop(context, true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Alumno creado exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al crear alumno: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  //Campo de precio editable
+  Widget _buildPrecioField() {
+    return TextFormField(
+      controller: _precioController,
+      decoration: InputDecoration(
+        labelText: 'Precio Mensual',
+        hintText: 'Ingresa el precio mensual',
+        prefixIcon: Icon(Icons.attach_money),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        suffixText: '\$',
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+      ),
+      validator: (value) {
+        if (_selectedPlanId != null && (value == null || value.isEmpty)) {
+          return 'El precio es obligatorio si se selecciona un plan';
+        }
+        if (value != null &&
+            value.isNotEmpty &&
+            double.tryParse(value) == null) {
+          return 'Ingresa un número válido';
+        }
+        return null;
+      },
+      keyboardType: TextInputType.number,
+
+      enabled: !_isLoading,
     );
   }
 
@@ -410,11 +504,7 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
             ),
           )
           .toList(),
-      onChanged: _isLoading
-          ? null
-          : (value) {
-              if (value != null) setState(() => _selectedSchedule = value);
-            },
+      onChanged: _isLoading ? null : _onPlanSelected,
     );
   }
 
@@ -429,7 +519,7 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        onPressed: _isLoading ? null : _handleSubmit,
+        onPressed: _isLoading ? null : _saveStudent,
         child: _isLoading
             ? const SizedBox(
                 height: 20,
