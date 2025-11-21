@@ -1,8 +1,25 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 class SupabaseConfig {
-  // Reemplaza con tus valores reales de Supabase
-  static const String supabaseUrl = 'https://gsapclouuokwevixbnfw.supabase.co';
-  static const String supabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzYXBjbG91dW9rd2V2aXhibmZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NzQzMzgsImV4cCI6MjA2NjQ1MDMzOH0.tZWwsjqYg5gK5TvotdAnGvqW94uVk-aiTV2LBiNP8ps'; // Tu anon key (la larga que empieza con eyJ)
+  static String get supabaseUrl {
+    final url = dotenv.env['SUPABASE_URL'];
+    print('URL leida: $url');
+
+    if (url == null || url.isEmpty) {
+      throw Exception('SUPABASE_URL no está definida en .env');
+    }
+    return url;
+  }
+
+  static String get supabaseAnonKey {
+    final key = dotenv.env['SUPABASE_ANON_KEY'];
+    print('🔍 SUPABASE_ANON_KEY leída: ${key?.substring(0, 20)}...');
+
+    if (key == null || key.isEmpty) {
+      throw Exception('SUPABASE_ANON_KEY no está definida en .env');
+    }
+    return key;
+  }
 
   // Para desarrollo local (opcional)
   static const String localUrl = 'http://localhost:54321';

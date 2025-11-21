@@ -1,9 +1,6 @@
-import 'package:gym_management_app/models/plan.dart';
-import 'package:gym_management_app/models/user.dart';
 import 'package:flutter/material.dart';
 
 class Student {
-  //Identificacion
   final String id;
   final String name;
   final String lastName;
@@ -13,33 +10,28 @@ class Student {
   final String? emergencyPhone;
   final String? dni;
   final DateTime? dateOfBirth;
-  final String schedule; //horario de clases
+  final String schedule;
 
-  //plan y horarios
-
-  final String? planId; //ID del plan contratado
-  final DateTime? planStartDate; //Fecha de inicio del plan
-  final DateTime? planEndDate; //Fecha de fin del plan
-  final String paymentStatus; //Estado de pago (Pagado, Pendiente, No pago)
+  final String? planId;
+  final DateTime? planStartDate;
+  final DateTime? planEndDate;
+  final String paymentStatus;
   final String? routineUrl;
-  final DateTime? lastPaymentDate; //Fecha del ultimo pago
-  final DateTime? nextPaymentDate; //Fecha del proximo pago
-  final double? monthPrice; //Numero de la cuota mensual
-  final double? debt; //Deuda acumulada
-  final String? notes; //Notas adicionales
-  final DateTime createdAt; //Fecha de creacion del alumno
+  final DateTime? lastPaymentDate;
+  final DateTime? nextPaymentDate;
+  final double? monthPrice;
+  final double debt;
+  final String? notes;
+  final DateTime createdAt;
 
   final String profesorId;
+  final String? medicalConditions;
+  final String? fitnessGoals;
+  final bool isActive;
 
-  // Salud y condicion fisica
-  final String? medicalConditions; //Condiciones medicas
-  final String? fitnessGoals; //Objetivos de fitness
-
-  // Sistema
-  final bool isActive; //Si el estudiante esta activo o dado de baja
-
-  final UserModel? profesor;
-  final Plan? plan;
+  // Relaciones (opcional)
+  final Map<String, dynamic>? profesor;
+  final Map<String, dynamic>? plan;
 
   Student({
     required this.id,
@@ -52,7 +44,6 @@ class Student {
     this.dni,
     this.dateOfBirth,
     required this.schedule,
-
     this.planId,
     this.planStartDate,
     this.planEndDate,
@@ -64,63 +55,63 @@ class Student {
     this.debt = 0.0,
     this.notes,
     required this.createdAt,
-
     required this.profesorId,
     this.medicalConditions,
     this.fitnessGoals,
-
     this.isActive = true,
     this.profesor,
     this.plan,
   });
 
+  // 🔥 ESTE ES EL IMPORTANTE - fromJson
   factory Student.fromJson(Map<String, dynamic> json) {
     return Student(
-      id: json['id'],
-      name: json['name'],
-      lastName: json['last_name'] ?? '',
-      email: json['email'] ?? '',
-      phone: json['phone'],
-      emergencyContact: json['emergency_contact'],
-      emergencyPhone: json['emergency_phone'],
-      dni: json['dni'],
+      id: json['id'] as String,
+      name: json['name'] as String,
+      lastName: json['last_name'] as String,
+      email: json['email'] as String,
+      phone: json['phone'] as String?,
+      emergencyContact: json['emergency_contact'] as String?,
+      emergencyPhone: json['emergency_phone'] as String?,
+      dni: json['dni'] as String?,
       dateOfBirth: json['date_of_birth'] != null
           ? DateTime.parse(json['date_of_birth'])
           : null,
-      schedule: json['schedule'],
-      monthPrice: json['month_price'] != null
-          ? (json['month_price'] as num).toDouble()
-          : null,
-      planId: json['plan_id'],
+      schedule: json['schedule'] as String,
+
+      planId: json['plan_id'] as String?,
       planStartDate: json['plan_start_date'] != null
           ? DateTime.parse(json['plan_start_date'])
           : null,
       planEndDate: json['plan_end_date'] != null
           ? DateTime.parse(json['plan_end_date'])
           : null,
-      paymentStatus: json['payment_status'],
-      routineUrl: json['routine_url'],
+      paymentStatus: json['payment_status'] as String? ?? 'pendiente',
+      routineUrl: json['routine_url'] as String?,
       lastPaymentDate: json['last_payment_date'] != null
           ? DateTime.parse(json['last_payment_date'])
           : null,
       nextPaymentDate: json['next_payment_date'] != null
           ? DateTime.parse(json['next_payment_date'])
           : null,
-
-      debt: json['debt']?.toDouble() ?? 0.0,
-      notes: json['notes'],
+      monthPrice: json['month_price'] != null
+          ? (json['month_price'] as num).toDouble()
+          : null,
+      debt: json['debt'] != null ? (json['debt'] as num).toDouble() : 0.0,
+      notes: json['notes'] as String?,
       createdAt: DateTime.parse(json['created_at']),
 
-      profesorId: json['profesor_id'],
-      medicalConditions: json['medical_conditions'],
-      fitnessGoals: json['fitness_goals'],
+      profesorId: json['profesor_id'] as String,
+      medicalConditions: json['medical_conditions'] as String?,
+      fitnessGoals: json['fitness_goals'] as String?,
+      isActive: json['is_active'] as bool? ?? true,
 
-      isActive: json['is_active'] ?? true,
-      profesor: json['user'] != null ? UserModel.fromJson(json['user']) : null,
-      plan: json['plans'] != null ? Plan.fromJson(json['plans']) : null,
+      profesor: json['profesor'] as Map<String, dynamic>?,
+      plan: json['plan'] as Map<String, dynamic>?,
     );
   }
 
+  // toJson para insertar/actualizar
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -131,25 +122,22 @@ class Student {
       'emergency_contact': emergencyContact,
       'emergency_phone': emergencyPhone,
       'dni': dni,
-      'date_of_birth': dateOfBirth?.toIso8601String(),
+      'date_of_birth': dateOfBirth?.toIso8601String().split('T')[0],
       'schedule': schedule,
-      'month_price': monthPrice,
       'plan_id': planId,
-      'plan_start_date': planStartDate?.toIso8601String(),
-      'plan_end_date': planEndDate?.toIso8601String(),
+      'plan_start_date': planStartDate?.toIso8601String().split('T')[0],
+      'plan_end_date': planEndDate?.toIso8601String().split('T')[0],
       'payment_status': paymentStatus,
       'routine_url': routineUrl,
-      'last_payment_date': lastPaymentDate?.toIso8601String(),
-      'next_payment_date': nextPaymentDate?.toIso8601String(),
-
+      'last_payment_date': lastPaymentDate?.toIso8601String().split('T')[0],
+      'next_payment_date': nextPaymentDate?.toIso8601String().split('T')[0],
+      'month_price': monthPrice,
       'debt': debt,
       'notes': notes,
       'created_at': createdAt.toIso8601String(),
-
       'profesor_id': profesorId,
       'medical_conditions': medicalConditions,
       'fitness_goals': fitnessGoals,
-
       'is_active': isActive,
     };
   }
@@ -165,9 +153,6 @@ class Student {
     String? dni,
     DateTime? dateOfBirth,
     String? schedule,
-    double? monthPrice,
-    String? classType,
-
     String? planId,
     DateTime? planStartDate,
     DateTime? planEndDate,
@@ -175,20 +160,16 @@ class Student {
     String? routineUrl,
     DateTime? lastPaymentDate,
     DateTime? nextPaymentDate,
-    double? monthlyFee,
+    double? monthPrice,
     double? debt,
     String? notes,
     DateTime? createdAt,
-    DateTime? updatedAt,
     String? profesorId,
     String? medicalConditions,
-
     String? fitnessGoals,
-    DateTime? lastAttendanceDate,
-    int? totalAttendances,
     bool? isActive,
-    Plan? plan,
-    UserModel? profesor,
+    Map<String, dynamic>? plan,
+    Map<String, dynamic>? profesor,
   }) {
     return Student(
       id: id ?? this.id,
@@ -212,14 +193,12 @@ class Student {
       debt: debt ?? this.debt,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
-
       profesorId: profesorId ?? this.profesorId,
       medicalConditions: medicalConditions ?? this.medicalConditions,
       fitnessGoals: fitnessGoals ?? this.fitnessGoals,
-
       isActive: isActive ?? this.isActive,
-      profesor: profesor ?? this.profesor,
       plan: plan ?? this.plan,
+      profesor: profesor ?? this.profesor,
     );
   }
 
@@ -240,11 +219,8 @@ class Student {
     return age;
   }
 
-  // Información del plan
-  double get monthlyPrice =>
-      plan?.monthlyPrice ?? 0.0; //Obtiene el precio mensual del plan
-
-  String get planName => plan?.name ?? 'Sin plan'; //Obtiene el nombre del plan
+  String get planName =>
+      plan?['name'] ?? 'Sin plan'; //Obtiene el nombre del plan
 
   bool get hasPlan =>
       plan != null || planId != null; //Verifica si tiene plan asignado
@@ -259,7 +235,7 @@ class Student {
   bool get isOverdue =>
       paymentStatus.toLowerCase() == 'no pago'; //Determina si no esta pago
 
-  bool get hasDebt => (debt ?? 0.0) > 0; //Verifica si tiene deuda
+  bool get hasDebt => debt > 0; //Verifica si tiene deuda
 
   // Estado del plan
   bool get isPlanExpired {

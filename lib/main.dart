@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 //import 'package:gym_management_app/components/component_listado_alumnos.dart';
 import 'package:gym_management_app/screens/dashboard_screen.dart';
+import 'package:gym_management_app/services/supabase_config.dart';
 //import 'package:gym_management_app/components/component_form.dart';
-
 //import 'package:gym_management_app/screens/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -18,10 +18,13 @@ Future<void> main() async {
   // Cargar .env
   await dotenv.load(fileName: ".env");
 
+  print('🔍 .env cargado');
+  print('🔍 SUPABASE_URL: ${dotenv.env['SUPABASE_URL']}');
+
   // REEMPLAZAR CON TUS CREDENCIALES CORRECTAS
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    url: SupabaseConfig.supabaseUrl,
+    anonKey: SupabaseConfig.supabaseAnonKey,
   );
 
   runApp(const MyApp());

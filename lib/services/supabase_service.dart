@@ -118,13 +118,16 @@ class SupabaseService {
   //response -> respuesta
   Future<List<Plan>> getPlans() async {
     try {
-      final response = await SupabaseService.client.from('plans').select();
+      final response = await SupabaseService.client
+          .from('plans')
+          .select()
+          .order('days_per_week', ascending: true);
 
       return (response as List).map((plan) => Plan.fromJson(plan)).toList();
     } catch (e) {
       print('Error obteniendo planes: $e');
       //throw exception -> Lanzar excepcion
-      throw Exception('No se pudieron cargar los planes');
+      rethrow;
     }
   }
 
@@ -237,28 +240,49 @@ class SupabaseService {
   }
 
   //Agregar estudiantes
-  Future<Map<String, dynamic>> addStudent(Student student) async {
+  Future<void> addStudent({
+    required String name,
+    required String lastName,
+    required String email,
+    String? phone,
+    String? emergencyContact,
+    String? emergencyPhone,
+    String? dni,
+    double? precioMensual,
+    DateTime? dateOfBirth,
+    required String schedule,
+    String? planId,
+    String? profesorId,
+  }) async {
     try {
-      final response = await SupabaseService.client
-          .from('students')
-          .insert(student.toJson())
-          .select('''
-          *,
-          users!students_profesor_id_fkey(
-          id, name, email, work_area
-          ),
-          plans(
-          id, name, monthly_price
-          )
-          ''')
-          .single();
-
-      return {'success': true, 'student': Student.fromJson(response)};
+      if (planId != null) {
+        final planResponse = await SupabaseService.client
+            .from('plans')
+            .select('monthly_price')
+            .eq('id', planId)
+            .single();
+        precioMensual = (planResponse['monthly_price'] as num).toDouble();
+      }
+      await SupabaseService.client.from('students').insert({
+        'name': name,
+        'last_name': lastName,
+        'email': email,
+        'phone': phone,
+        'emergency_contact': emergencyContact,
+        'emergency_phone': emergencyPhone,
+        'dni': dni,
+        'date_of_birth': dateOfBirth?.toIso8601String(),
+        'monthly_price': precioMensual,
+        'active': true,
+        'schedule': schedule,
+        'plan_id': planId,
+        'profesor_id': profesorId,
+        'precio_mensual': precioMensual,
+        'payment_status': 'pending',
+      });
     } catch (e) {
-      return {
-        'success': false,
-        'error': 'Error agregando estudiante: ${e.toString()}',
-      };
+      print('Error agregando estudiante: $e');
+      throw Exception('No se pudo agregar el estudiante');
     }
   }
 
@@ -406,9 +430,9 @@ class SupabaseService {
         if (student.hasPlan) {
           if (student.isPaid) {
             // Se corrigió la lógica para sumar los ingresos pagados
-            ingresosPagados += student.monthlyPrice;
+            ingresosPagados += student.monthPrice ?? 0.0;
           } else if (student.isPending) {
-            ingresosPendientes += student.monthlyPrice;
+            ingresosPendientes += student.monthPrice ?? 0.0;
           }
         }
       }

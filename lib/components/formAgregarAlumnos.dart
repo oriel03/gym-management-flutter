@@ -1,4 +1,3 @@
-// ignore: file_names
 import 'package:flutter/material.dart';
 import 'package:gym_management_app/services/supabase_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -31,7 +30,7 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
   bool _isLoading = false;
   DateTime? _selectedDate;
   List<Plan> _planes = [];
-  final String _selectedSchedule = 'Mañana';
+  String _selectedSchedule = 'Mañana';
   final List<String> _schedules = ['Mañana', 'Tarde', 'Noche'];
 
   String? _selectedPlanId;
@@ -504,7 +503,13 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
             ),
           )
           .toList(),
-      onChanged: _isLoading ? null : _onPlanSelected,
+      onChanged: _isLoading
+          ? null
+          : (value) {
+              setState(() {
+                _selectedSchedule = value!;
+              });
+            },
     );
   }
 
