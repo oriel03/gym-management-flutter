@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gym_management_app/components/component_Custom_Button.dart';
 
-import 'package:gym_management_app/components/formAgregarAlumnos.dart';
+import 'package:gym_management_app/components/form_agregar_alumnos.dart';
 import 'package:gym_management_app/screens/dashboard_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:gym_management_app/models/student.dart';

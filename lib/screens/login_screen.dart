@@ -104,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
         body: Stack(
           children: [
             // Contenido principal (fondo) - Ahora con slider de imágenes optimizado
-            Container(
+            SizedBox(
               width: double.infinity,
               height: double.infinity,
               child: Stack(

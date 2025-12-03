@@ -113,6 +113,37 @@ class SupabaseService {
     }
   }
 
+  /*============== P A S S W O R D S ===============*/
+  static Future<Map<String, dynamic>> resetPassword({
+    required String email,
+  }) async {
+    try {
+      await _client.auth.resetPasswordForEmail(
+        email,
+        redirectTo: 'https://gym-management-flutter.vercel.app/reset-password',
+      );
+
+      return {'success': true, 'message': 'Email de recuperacion enviado'};
+    } on AuthException catch (e) {
+      return {'success': false, 'Error': e.message};
+    } catch (e) {
+      return {'success': false, 'error': 'Error inesperado al enviar email'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> updatePassword({
+    required String newPin,
+  }) async {
+    try {
+      await _client.auth.updateUser(UserAttributes(password: newPin));
+      return {'success': true, 'Message': 'Pin actualizado exitosamente'};
+    } on AuthApiException catch (e) {
+      return {'success': false, 'Error': e.message};
+    } catch (e) {
+      return {'success': false, 'error': 'Error al actualizar el PIN'};
+    }
+  }
+
   /*============== P L A N E S ===============*/
   //Obtener planes
   //response -> respuesta

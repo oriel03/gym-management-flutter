@@ -45,5 +45,15 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>CFbundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>gymManagementApp</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>com.example.gymManagementApp</string>
+		</dict>
 </dict>
 </plist>

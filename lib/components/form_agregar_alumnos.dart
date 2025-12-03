@@ -362,7 +362,7 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
   // Dropdown de planes
   Widget _buildPlanDropdown() {
     return DropdownButtonFormField<String>(
-      value: _selectedPlanId,
+      initialValue: _selectedPlanId,
       decoration: InputDecoration(
         labelText: 'Plan',
         hintText: 'Selecciona un plan',
@@ -392,7 +392,7 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
   // Dropdown de horario
   Widget _buildScheduleDropdown() {
     return DropdownButtonFormField<String>(
-      value: _selectedSchedule,
+      initialValue: _selectedSchedule,
       decoration: InputDecoration(
         labelText: 'Horario *',
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),

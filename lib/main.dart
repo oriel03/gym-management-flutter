@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 //import 'package:gym_management_app/components/component_listado_alumnos.dart';
-import 'package:gym_management_app/screens/dashboard_screen.dart';
+//import 'package:gym_management_app/screens/dashboard_screen.dart';
+import 'package:gym_management_app/screens/login_screen.dart';
 //import 'package:gym_management_app/components/component_form.dart';
-
+import 'package:gym_management_app/screens/reset_password_screen.dart';
 //import 'package:gym_management_app/screens/login_screen.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -36,13 +37,12 @@ class MyApp extends StatelessWidget {
       title: 'Valhalla Gym Management',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
 
-      home: const DashboardScreen(),
-
-      //initialRoute: '/', // Pantalla inicial
-      //routes: {
-      // RUTA PRINCIPAL - LOGIN
-      //'/': (context) => const ComponentForm(),
-      //},
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const LoginScreen(), // Tu pantalla actual
+        '/reset-password': (context) => const ResetPasswordScreen(),
+        // ... tus otras rutas
+      },
     );
   }
 }

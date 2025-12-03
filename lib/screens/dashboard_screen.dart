@@ -279,16 +279,16 @@ Void _navigateToFinanzas(){
                     ),
                   ],
                   style: MenuStyle(
-                    backgroundColor: MaterialStateProperty.all(
+                    backgroundColor: WidgetStateProperty.all(
                       Color.fromRGBO(44, 50, 50, 0.9),
                     ),
-                    elevation: MaterialStateProperty.all(4),
-                    shape: MaterialStateProperty.all(
+                    elevation: WidgetStateProperty.all(4),
+                    shape: WidgetStateProperty.all(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    padding: MaterialStateProperty.all(
+                    padding: WidgetStateProperty.all(
                       EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     ),
                   ),
@@ -350,14 +350,14 @@ Void _navigateToFinanzas(){
                     ),
                   ],
                   style: MenuStyle(
-                    padding: MaterialStateProperty.all(
+                    padding: WidgetStateProperty.all(
                       EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     ),
-                    backgroundColor: MaterialStateProperty.all(
+                    backgroundColor: WidgetStateProperty.all(
                       Color.fromRGBO(44, 50, 50, 0.9),
                     ),
-                    elevation: MaterialStateProperty.all(8),
-                    shape: MaterialStateProperty.all(
+                    elevation: WidgetStateProperty.all(8),
+                    shape: WidgetStateProperty.all(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -416,7 +416,7 @@ Void _navigateToFinanzas(){
   }
 
   Widget _buildCalendar(bool isDesktop, BoxConstraints constraints) {
-    return Container(
+    return SizedBox(
       height: isDesktop ? 500 : 400,
       child: CalendarControllerProvider(
         controller: _eventController,

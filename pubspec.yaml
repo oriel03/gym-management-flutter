@@ -31,8 +31,7 @@ dependencies:
   #Shared Preferences
   shared_preferences: ^2.2.2
 
-  #Icons
-  font_awesome_flutter: ^10.7.0
+  app_links: ^6.3.2
 
 dev_dependencies:
   flutter_test:

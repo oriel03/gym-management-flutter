@@ -68,7 +68,6 @@ class ComponentFormState extends State<ComponentForm> {
 
       if (result['success']) {
         _showSnackBar('¡Bienvenido!', isError: false);
-        // TODO: Navegar a pantalla principal
         // Navigator.pushReplacementNamed(context, '/home');
       } else {
         _showSnackBar(result['error'] ?? 'Error de autenticación');
@@ -105,6 +104,101 @@ class ComponentFormState extends State<ComponentForm> {
       }
     } catch (e) {
       if (mounted) _showSnackBar('Error de conexión: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  //Nueva funcion para mostrar dialogo de recuperacion de PIN
+  void _showForgotPinDialog() {
+    final emailController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8.0),
+          ),
+          title: const Text(
+            'Recuperar PIN',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'ingresa tu email y te enviaremos instrucciones para restablecer tu PIN',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'correo@gmail.com',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: _validateEmail,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                emailController.dispose();
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  Navigator.of(dialogContext).pop();
+                  await _handleForgotPin(emailController.text.trim());
+                }
+                emailController.dispose();
+              },
+              child: const Text('Enviar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  //Funcion para manejar la recuperacion de PIN
+  Future<void> _handleForgotPin(String email) async {
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await SupabaseService.resetPassword(email: email);
+
+      if (!mounted) return;
+
+      if (result['success']) {
+        _showSnackBar(
+          'Email de recuperacion enviado. Revisa tu correo electronico',
+          isError: false,
+        );
+      } else {
+        _showSnackBar(
+          result['error'] ?? 'Error al enviar email de recuperacion',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Error de conexion $e');
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -164,6 +258,10 @@ class ComponentFormState extends State<ComponentForm> {
               _buildTitle(),
               const SizedBox(height: 24),
               ..._buildFormFields(),
+              if (_isLogin) ...[
+                const SizedBox(height: 16),
+                _buildForgotPinLink(),
+              ],
               const SizedBox(height: 24),
               _buildSubmitButton(),
               const SizedBox(height: 16),
@@ -182,6 +280,29 @@ class ComponentFormState extends State<ComponentForm> {
         fontSize: 24,
         fontWeight: FontWeight.bold,
         color: Color(0xFF2C3232),
+      ),
+    );
+  }
+
+  //Widget para "olvidaste tu pin"
+
+  Widget _buildForgotPinLink() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: _isLoading ? null : _showForgotPinDialog,
+          child: Text(
+            '¿Olvidaste tu PIN?',
+            style: TextStyle(
+              color: _isLoading ? Colors.grey : Colors.blue,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              decoration: TextDecoration.underline,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -265,7 +386,7 @@ class ComponentFormState extends State<ComponentForm> {
       'small_class_teacher': 'Profesor sala Pequeña',
     };
     return DropdownButtonFormField<String>(
-      value: _selectedWorkArea,
+      initialValue: _selectedWorkArea,
       decoration: InputDecoration(
         labelText: 'Área de Trabajo',
         hintText: 'Selecciona tu área',
@@ -304,7 +425,7 @@ class ComponentFormState extends State<ComponentForm> {
       obscureText: obscureText,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
-      enabled: !_isLoading, // ✅ Deshabilitar durante carga
+      enabled: !_isLoading,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
