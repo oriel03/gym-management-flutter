@@ -1,31 +1,32 @@
 #!/bin/bash
 
-# Define la versión de Flutter que quieres usar (la que requiere tu pubspec.yaml)
-FLUTTER_VERSION="3.8.0-124.0.dev"
+# Configurar para evitar errores interactivos
+export DEBIAN_FRONTEND=noninteractive
 
-# Clona el repositorio de Flutter
-git clone https://github.com/flutter/flutter.git
+# Instalar Flutter si no está
+if [ ! -d "flutter" ]; then
+  echo "Clonando Flutter..."
+  git clone https://github.com/flutter/flutter.git -b stable --depth 1
+fi
 
-# Mueve el directorio de Flutter
-cd flutter
+# Configurar PATH
+export PATH="$PATH:`pwd`/flutter/bin"
 
-# Cambia a la versión específica requerida por tu proyecto
-git checkout $FLUTTER_VERSION
+# Precaché Flutter (acelera la compilación)
+flutter precache --web
 
-# Vuelve al directorio raíz del proyecto
-cd ..
+# Deshabilitar analytics
+flutter config --no-analytics
 
-# Agrega Flutter al PATH
-export PATH="$PATH:$(pwd)/flutter/bin"
-
-# Verifica que Flutter esté disponible y en la versión correcta
-flutter --version
-
-# Acepta las licencias de Android (esto puede ser necesario)
-flutter doctor --android-licenses --no-license-check
-
-# Obtiene las dependencias del proyecto
+# Obtener dependencias
+echo "Obteniendo dependencias..."
 flutter pub get
 
-# Construye la aplicación web
-flutter build web --release
+# Compilar para web con optimizaciones
+echo "Compilando para web..."
+flutter build web \
+  --release \
+  --web-renderer canvaskit \
+  --no-tree-shake-icons
+
+echo "Compilación completada"

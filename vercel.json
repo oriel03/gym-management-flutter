@@ -13,5 +13,10 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "build.sh": {
+      "maxDuration": 300
+    }
+  }
 }
