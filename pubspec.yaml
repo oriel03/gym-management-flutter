@@ -34,6 +34,8 @@ dependencies:
   #Icons
   font_awesome_flutter: ^10.7.0
 
+  #http
+  http: ^1.1.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

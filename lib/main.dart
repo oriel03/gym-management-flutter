@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 //import 'package:gym_management_app/components/component_listado_alumnos.dart';
-import 'package:gym_management_app/screens/dashboard_screen.dart';
+//import 'package:gym_management_app/screens/dashboard_screen.dart';
+import 'package:gym_management_app/screens/login_screen.dart';
+import 'package:gym_management_app/screens/recovery_screen.dart';
 //import 'package:gym_management_app/components/component_form.dart';
 
 //import 'package:gym_management_app/screens/login_screen.dart';
@@ -36,13 +38,14 @@ class MyApp extends StatelessWidget {
       title: 'Valhalla Gym Management',
       theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
 
-      home: const DashboardScreen(),
-
-      //initialRoute: '/', // Pantalla inicial
-      //routes: {
-      // RUTA PRINCIPAL - LOGIN
-      //'/': (context) => const ComponentForm(),
-      //},
+      initialRoute: '/', // Pantalla inicial
+      routes: {
+        '/': (context) => const LoginScreen(),
+        '/send-recovery-pin': (context) => const RecoveryScreen(),
+        //'/students': (context) => const StudentsScreen(), --- IGNORE ---
+        //'/add-student': (context) => const AddStudentScreen(), --- IGNORE ---
+        //'/plans': (context) => const PlansScreen(), --- IGNORE ---
+      },
     );
   }
 }

@@ -68,7 +68,7 @@ class ComponentFormState extends State<ComponentForm> {
 
       if (result['success']) {
         _showSnackBar('¡Bienvenido!', isError: false);
-        // TODO: Navegar a pantalla principal
+
         // Navigator.pushReplacementNamed(context, '/home');
       } else {
         _showSnackBar(result['error'] ?? 'Error de autenticación');
@@ -164,7 +164,11 @@ class ComponentFormState extends State<ComponentForm> {
               _buildTitle(),
               const SizedBox(height: 24),
               ..._buildFormFields(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 12),
+
+              //link de recuperar pin
+              if (_isLogin) _recoverPinLink(),
+              const SizedBox(height: 16),
               _buildSubmitButton(),
               const SizedBox(height: 16),
               _buildToggleLink(),
@@ -182,6 +186,22 @@ class ComponentFormState extends State<ComponentForm> {
         fontSize: 24,
         fontWeight: FontWeight.bold,
         color: Color(0xFF2C3232),
+      ),
+    );
+  }
+
+  Widget _recoverPinLink() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton(
+        onPressed: () {
+          // Navegar a la pantalla de recuperación de PIN
+          Navigator.pushNamed(context, '/send-recovery-pin');
+        },
+        child: const Text(
+          '¿Olvidaste tu PIN?',
+          style: TextStyle(color: Colors.blue),
+        ),
       ),
     );
   }
