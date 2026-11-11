@@ -1,15 +1,20 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:gym_management_app/services/email_services.dart';
+import 'package:logging/logging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+/* Recuperación con Supabase Auth: Supabase manda un email con un link
+   seguro y de un solo uso. Al abrirlo, la app recibe el evento
+   passwordRecovery y muestra NewPinScreen. El PIN nunca viaja por email
+   ni pasa por nuestro código. */
 class RecoveryScreen extends StatefulWidget {
-  const RecoveryScreen({Key? key}) : super(key: key);
+  const RecoveryScreen({super.key});
 
   @override
   State<RecoveryScreen> createState() => _RecoveryScreenState();
 }
 
 class _RecoveryScreenState extends State<RecoveryScreen> {
+  final log = Logger('RecoveryScreen');
   final _emailController = TextEditingController();
   bool _isLoading = false;
 
@@ -28,70 +33,39 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
     }
 
     setState(() => _isLoading = true);
-
     try {
-      print('🔍 Buscando usuario con email: $email');
-
-      // Buscar usuario en Supabase
-      final response = await Supabase.instance.client
-          .from('users')
-          .select('pin')
-          .eq('email', email)
-          .maybeSingle();
-
-      if (response == null) {
-        print('❌ Usuario no encontrado');
-        if (mounted) {
-          _mostrarMensaje('Email no registrado en el sistema', Colors.red);
-        }
-        return;
-      }
-
-      String pin = response['pin'].toString();
-      print('✅ Usuario encontrado, PIN: $pin');
-
-      // Enviar email
-      print('📧 Intentando enviar email...');
-      bool enviado = await EmailServices.enviarPinRecuperacion(
-        email: email,
-        pin: pin,
+      // No logueamos el email: es un dato personal.
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        email.toLowerCase(),
+        // En web, el link vuelve a la misma URL donde corre la app.
+        redirectTo: kIsWeb ? Uri.base.origin : null,
       );
-
-      if (mounted) {
-        if (enviado) {
-          print('✅ Email enviado exitosamente');
-          _mostrarMensaje('📧 Revisa tu email', Colors.green);
-
-          // Volver al login después de 2 segundos
-          Future.delayed(const Duration(seconds: 2), () {
-            if (mounted) {
-              Navigator.pop(context);
-            }
-          });
-        } else {
-          print('❌ Error al enviar email');
-          _mostrarMensaje(
-            'No se pudo enviar el email. Verifica tu conexión.',
-            Colors.red,
-          );
-        }
+      _mostrarEnviado();
+    } on AuthException catch (e, st) {
+      log.warning('resetPasswordForEmail falló status=${e.statusCode}', e, st);
+      if (e.statusCode == '429') {
+        _mostrarMensaje(
+            'Pediste muchos links seguidos. Esperá unos minutos.', Colors.orange);
+      } else {
+        // Mismo mensaje exista o no el email (no revelamos quién tiene cuenta)
+        _mostrarEnviado();
       }
-    } on PostgrestException catch (e) {
-      print('❌ Error de Supabase: ${e.message}');
-      if (mounted) {
-        _mostrarMensaje('Error de base de datos: ${e.message}', Colors.red);
-      }
-    } catch (e, stackTrace) {
-      print('❌ Error inesperado: $e');
-      print('📍 StackTrace: $stackTrace');
-      if (mounted) {
-        _mostrarMensaje('Error: ${e.toString()}', Colors.red);
-      }
+    } catch (e, st) {
+      log.severe('Error inesperado en _recuperarPin', e, st);
+      _mostrarMensaje('Error de conexión. Verificá tu internet.', Colors.red);
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      // Antes _isLoading nunca volvía a false y el botón quedaba bloqueado
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _mostrarEnviado() {
+    _mostrarMensaje(
+        'Si el email está registrado, te llegó un link para elegir un PIN nuevo.',
+        Colors.green);
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) Navigator.pop(context);
+    });
   }
 
   bool _esEmailValido(String email) {
@@ -130,7 +104,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'Ingresa tu email y te enviaremos tu PIN',
+                'Ingresá tu email y te enviamos un link para elegir un PIN nuevo',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey, fontSize: 14),
               ),
@@ -173,7 +147,7 @@ class _RecoveryScreenState extends State<RecoveryScreen> {
                           ),
                         )
                       : const Text(
-                          'Enviar PIN',
+                          'Enviar link',
                           style: TextStyle(fontSize: 16),
                         ),
                 ),

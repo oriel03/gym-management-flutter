@@ -1,7 +1,11 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:async';
 import 'package:gym_management_app/components/component_form.dart';
+//import 'package:provider/provider.dart';
+//import 'package:gym_management_app/providers/auth_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -102,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
         body: Stack(
           children: [
             // Contenido principal (fondo) - Ahora con slider de imágenes optimizado
-            Container(
+            SizedBox(
               width: double.infinity,
               height: double.infinity,
               child: Stack(
@@ -156,7 +160,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             shape: BoxShape.circle,
                             color: _currentIndex == entry.key
                                 ? Colors.white
-                                : Colors.white.withOpacity(0.5),
+                                : Colors.white.withValues(colorSpace: ColorSpace.sRGB),
                           ),
                         );
                       }).toList(),
