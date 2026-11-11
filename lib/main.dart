@@ -1,50 +1,54 @@
 import 'package:flutter/material.dart';
-//import 'package:gym_management_app/components/component_listado_alumnos.dart';
-//import 'package:gym_management_app/screens/dashboard_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:gym_management_app/core/config/env.dart';
+import 'package:gym_management_app/providers/auth_provider.dart';
+import 'package:gym_management_app/screens/auth_wrapper.dart';
+import 'package:gym_management_app/screens/dashboard_screen.dart';
 import 'package:gym_management_app/screens/login_screen.dart';
 import 'package:gym_management_app/screens/recovery_screen.dart';
-//import 'package:gym_management_app/components/component_form.dart';
-
-//import 'package:gym_management_app/screens/login_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-// Importar pantallas (vas a crear estos archivos después)
-// import 'screens/login_screen.dart';
-// import 'screens/dashboard_screen.dart';
-// import 'screens/students_screen.dart';
-// import 'screens/add_student_screen.dart';
-// import 'screens/plans_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Cargar .env
-  await dotenv.load(fileName: ".env");
 
-  // REEMPLAZAR CON TUS CREDENCIALES CORRECTAS
+  // Fallar rápido y con un mensaje claro si faltan los --dart-define.
+  // Sin esto, Supabase falla más adelante con un error difícil de entender.
+  if (Env.supabaseUrl.isEmpty || Env.supabaseAnonKey.isEmpty) {
+    throw StateError(
+      'Faltan SUPABASE_URL / SUPABASE_ANON_KEY. Corré la app con '
+      '--dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...',
+    );
+  }
+
   await Supabase.initialize(
-    url: dotenv.env['SUPABASE_URL']!,
-    anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
+    url: Env.supabaseUrl,
+    anonKey: Env.supabaseAnonKey,
   );
 
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [ChangeNotifierProvider(create: (_) => AuthProvider())],
+      child: const GymApp(),
+    ),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class GymApp extends StatelessWidget {
+  const GymApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Valhalla Gym Management',
-      theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
-
-      initialRoute: '/', // Pantalla inicial
+      title: 'Gym Management',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(colorSchemeSeed: Colors.blue, useMaterial3: true),
+      home: const AuthWrapper(),
       routes: {
-        '/': (context) => const LoginScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/dashboard': (context) => const DashboardScreen(),
+        // component_form.dart navega a esta ruta desde "¿Olvidaste tu PIN?"
         '/send-recovery-pin': (context) => const RecoveryScreen(),
-        //'/students': (context) => const StudentsScreen(), --- IGNORE ---
-        //'/add-student': (context) => const AddStudentScreen(), --- IGNORE ---
-        //'/plans': (context) => const PlansScreen(), --- IGNORE ---
       },
     );
   }
