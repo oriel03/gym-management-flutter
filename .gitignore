@@ -31,3 +31,5 @@ secrets.json
 .idea/
 *.iml
 .DS_Store
+# Graphify
+graphify-out/
