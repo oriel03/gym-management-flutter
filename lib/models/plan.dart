@@ -1,60 +1,89 @@
+enum PlanType { libre, semiPersonalizado, personalizado }
+
+extension PlanTypeExtension on PlanType{
+  String get value{
+    switch (this){
+      case PlanType.libre:
+      return 'libre';
+      case PlanType.semiPersonalizado:
+      return 'semiPersonalizado';
+      case PlanType.personalizado:
+      return 'personalizado';
+    }
+  }
+
+  static PlanType fromString(String value){
+    switch (value){
+      case 'Libre':
+        return PlanType.libre;
+      case 'semiPersonalizado':
+        return PlanType.semiPersonalizado;
+      case 'personalizado':
+        return PlanType.personalizado;
+      default:
+       throw Exception('unknown plan: $value');
+    }
+  }
+}
+
 class Plan {
-  final String id;
+  final int id;
   final String name;
-  final int daysPerWeek; // ⚠️ CORREGIDO: Cambiar de dayPerWeek a daysPerWeek
+  final int daysPerWeek;
+  final PlanType? planType;
   final double monthlyPrice;
   final bool isPersonalized;
+  final String? description;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
   Plan({
     required this.id,
     required this.name,
     required this.daysPerWeek,
+    this.planType,
     required this.monthlyPrice,
     required this.isPersonalized,
+    this.description,
     required this.createdAt,
+    required this.updatedAt,
   });
 
-  factory Plan.fromJson(Map<String, dynamic> json) {
+  
+  factory Plan.fromMap(Map<String, dynamic> map) {
     return Plan(
-      id: json['id'],
-      name: json['name'],
-      daysPerWeek:
-          json['days_per_week'], // ⚠️ CORREGIDO: Ahora coincide con el nombre de variable
-      monthlyPrice: double.parse(json['monthly_price'].toString()),
-      isPersonalized: json['is_personalized'] ?? false,
-      createdAt: DateTime.parse(
-        json['created_at'],
-      ), // ⚠️ CORREGIDO: Cambiar de 'create_At' a 'created_at'
+      id: map['id'],
+      name: map['name'],
+      daysPerWeek: map['days_per_week'],
+      planType: map['plan_type'] != null
+      ? PlanTypeExtension.fromString(map['plan_type'])
+      : null,
+      monthlyPrice: (map['monthly_price'] as num).toDouble(),
+      isPersonalized: map['is_personalized'] ?? false,
+      description: map['description'],
+      createdAt: DateTime.parse(map['created_at']),
+      updatedAt: DateTime.parse(map['updated_at']),
     );
   }
 
-  // Convertir a JSON (para enviar a Supabase)
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toInsertMap() {
     return {
       'name': name,
-      'days_per_week': daysPerWeek, // ⚠️ CORREGIDO: Usar el nombre correcto
+      'days_per_week': daysPerWeek,
+      'plan_type': planType?.value,
       'monthly_price': monthlyPrice,
       'is_personalized': isPersonalized,
+      'description': description,
     };
   }
-
-  // ✅ AGREGAR: Método copyWith para facilitar actualizaciones
-  Plan copyWith({
-    String? id,
-    String? name,
-    int? daysPerWeek,
-    double? monthlyPrice,
-    bool? isPersonalized,
-    DateTime? createdAt,
-  }) {
-    return Plan(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      daysPerWeek: daysPerWeek ?? this.daysPerWeek,
-      monthlyPrice: monthlyPrice ?? this.monthlyPrice,
-      isPersonalized: isPersonalized ?? this.isPersonalized,
-      createdAt: createdAt ?? this.createdAt,
-    );
+  Map<String, dynamic> toUpdateMap() {
+    return {
+      'name': name,
+      'days_per_week': daysPerWeek,
+      'plan_type': planType?.value,
+      'monthly_price': monthlyPrice,
+      'is_personalized': isPersonalized,
+      'description': description,
+    };
   }
 }

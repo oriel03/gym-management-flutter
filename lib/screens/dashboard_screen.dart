@@ -1,13 +1,20 @@
+import 'dart:ui';
+import 'package:gym_management_app/services/supabase_service.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:calendar_view/calendar_view.dart';
 import 'package:gym_management_app/components/component_list_alumnos.dart';
+import 'package:gym_management_app/models/user.dart';
+import 'package:logging/logging.dart';
+import 'package:provider/provider.dart';
+import 'package:gym_management_app/providers/auth_provider.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  _DashboardScreenState createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() => _DashboardScreenState();
+  
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
@@ -19,15 +26,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
     debugLabel: 'Profile Button',
   );
   //Variables para manejar estados
-
+  int _pendingUsersCount = 0;
+  List<UserModel> _pendingUsers = [];
   final FocusNode _buttonFocusNode = FocusNode(debugLabel: 'Menu Button');
-
   @override
   void initState() {
     super.initState();
     _eventController = EventController();
+    _loadPendingUsers();
   }
-
+  
   @override
   void dispose() {
     _timer?.cancel();
@@ -44,15 +52,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
 Void _navigateToFinanzas(){
 }
 */
-  //Se crea para navegar al componentes de listado de alumnos //Se pasa el id del profesor logueado
+  Future<void> _loadPendingUsers() async {
+    final users = await SupabaseService.getPendingUsers();
+    if(mounted) {
+      setState((){
+        _pendingUsers = users;
+        _pendingUsersCount = users.length;
+      });
+    }
+  }
 
+// Ver a los usuarios pendientes
+void _showPendingUserSheet(){
+  showModalBottomSheet(
+    context: context, 
+    backgroundColor: Color.fromRGBO(44, 50, 50, 0.95),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (context) => _buildPendingUsersSheet(),);
+}
+  //Se crea para navegar al componentes de listado de alumnos //Se pasa el id del profesor logueado
+ //se incorpora un guard clause para evitar un pedido de id erroneo o inexsistente
   void navigateToAlumnos() {
+    final user = context.read<AuthProvider>().user;
+    if(user == null ) { 
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('debe iniciar sesion')),
+        );
+    return;
+    }
+    final isAdmin = user.workArea == WorkArea.admin;
     Navigator.pop(context);
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ComponentListadoAlumnos(
-          profesorId: 'bfe096d5-5c05-4d02-b33b-f136aaa76955',
+          profesorId: isAdmin ? null : user.id,
         ),
       ),
     );
@@ -119,6 +156,9 @@ Void _navigateToFinanzas(){
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final isAdmin = user?.workArea == WorkArea.admin;
+    
     return SafeArea(
       child: Scaffold(
         body: Stack(
@@ -127,7 +167,7 @@ Void _navigateToFinanzas(){
             _buildBackground(),
 
             // Navbar flotante
-            _buildNavbar(),
+            _buildNavbar(isAdmin),
 
             // Contenido principal
             Positioned(
@@ -183,7 +223,7 @@ Void _navigateToFinanzas(){
     );
   }
 
-  Widget _buildNavbar() {
+  Widget _buildNavbar(bool isAdmin) {
     return Positioned(
       top: 20,
       left: 20,
@@ -225,6 +265,7 @@ Void _navigateToFinanzas(){
                       ),
                     ),
                     Divider(),
+                    //Estos son los que faltarian agregar
                     /* -> 
                     MenuItemButton(
                       onPressed: () => _activateMenuEntry(MenuEntry.pagos),
@@ -279,16 +320,16 @@ Void _navigateToFinanzas(){
                     ),
                   ],
                   style: MenuStyle(
-                    backgroundColor: MaterialStateProperty.all(
+                    backgroundColor: WidgetStateProperty.all(
                       Color.fromRGBO(44, 50, 50, 0.9),
                     ),
-                    elevation: MaterialStateProperty.all(4),
-                    shape: MaterialStateProperty.all(
+                    elevation: WidgetStateProperty.all(4),
+                    shape: WidgetStateProperty.all(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    padding: MaterialStateProperty.all(
+                    padding: WidgetStateProperty.all(
                       EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     ),
                   ),
@@ -322,6 +363,34 @@ Void _navigateToFinanzas(){
                 ),
 
                 Spacer(),
+                // Notificacion de nuevo profe
+                  if(isAdmin)
+                  Badge(
+                  isLabelVisible: _pendingUsersCount > 0,
+                  label: Text(
+                    '$_pendingUsersCount',
+                    style: TextStyle(color: Colors.amberAccent, fontSize: 10),
+                  ),
+                  backgroundColor: Colors.red,                    
+                  child:  CircleAvatar(
+                      backgroundColor: const Color.fromARGB(255, 246, 243, 230),
+                      child: IconButton(
+                      
+                        //focusNode: _buttonFocusNode,
+                        onPressed: () 
+                        => _showPendingUserSheet(),
+                        icon: Icon(
+                          Icons.notifications,
+                          color: Color.fromRGBO(44, 50, 50, 0.9),
+                          size: 25,
+                        ),
+                        tooltip: 'Perfil',
+                      ),
+                    )
+                  
+                ),
+
+                SizedBox(width: 16,),
                 MenuAnchor(
                   childFocusNode: _buttonFocusNode,
                   menuChildren: <Widget>[
@@ -350,14 +419,14 @@ Void _navigateToFinanzas(){
                     ),
                   ],
                   style: MenuStyle(
-                    padding: MaterialStateProperty.all(
+                    padding: WidgetStateProperty.all(
                       EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     ),
-                    backgroundColor: MaterialStateProperty.all(
+                    backgroundColor: WidgetStateProperty.all(
                       Color.fromRGBO(44, 50, 50, 0.9),
                     ),
-                    elevation: MaterialStateProperty.all(8),
-                    shape: MaterialStateProperty.all(
+                    elevation: WidgetStateProperty.all(8),
+                    shape: WidgetStateProperty.all(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -386,7 +455,7 @@ Void _navigateToFinanzas(){
                     );
                   },
                 ),
-                SizedBox(width: 16),
+                SizedBox(width: 8),
               ],
             ),
           );
@@ -396,6 +465,8 @@ Void _navigateToFinanzas(){
   }
 
   Widget _buildWelcomeSection(bool isDesktop) {
+  final user = context.read<AuthProvider>().user;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(
@@ -403,7 +474,8 @@ Void _navigateToFinanzas(){
         vertical: isDesktop ? 20 : 12,
       ),
       child: Text(
-        'Bienvenido @usuario',
+        //Ver la forma de ponerlo con el nombre del profesor solucion: usar el id para sacar el first_name
+        'Bienvenido ${user?.name ?? 'Usuario'}',
         textAlign: isDesktop ? TextAlign.start : TextAlign.center,
         style: TextStyle(
           color: Color.fromRGBO(243, 243, 243, 1.0),
@@ -416,7 +488,8 @@ Void _navigateToFinanzas(){
   }
 
   Widget _buildCalendar(bool isDesktop, BoxConstraints constraints) {
-    return Container(
+        final log = Logger('DashboardScreen');
+    return SizedBox(
       height: isDesktop ? 500 : 400,
       child: CalendarControllerProvider(
         controller: _eventController,
@@ -424,7 +497,7 @@ Void _navigateToFinanzas(){
           decoration: BoxDecoration(
             color: isDesktop
                 ? Colors.amberAccent
-                : Color.fromARGB(255, 17, 19, 24).withOpacity(0.1),
+                : Color.fromARGB(255, 17, 19, 24).withValues(colorSpace: ColorSpace.sRGB),
 
             borderRadius: BorderRadius.circular(16.0),
             border: Border.all(color: Colors.black12, width: 0.5),
@@ -438,7 +511,7 @@ Void _navigateToFinanzas(){
               cellAspectRatio: isDesktop ? 1.4 : 1.3,
               showWeekends: true,
               initialMonth: DateTime.now(),
-
+            //recuadro de los dias
               weekDayBuilder: (day) {
                 final days = ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'];
                 return Container(
@@ -446,12 +519,12 @@ Void _navigateToFinanzas(){
                   padding: EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     days[day % 7],
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, backgroundColor: Colors.white),
                   ),
                 );
               },
               onEventTap: (events, date) {
-                print('Evento en $date: $events');
+                log.info('Evento en $date: $events');
               },
               headerBuilder: (date) {
                 return Container(
@@ -481,7 +554,7 @@ Void _navigateToFinanzas(){
       width: double.infinity,
       padding: EdgeInsets.all(isDesktop ? 24 : 16),
       decoration: BoxDecoration(
-        color: Color(0xFFF3F3F3).withOpacity(0.9),
+        color: Color(0xFFF3F3F3).withValues(colorSpace: ColorSpace.sRGB),
         borderRadius: BorderRadius.circular(16.0),
         boxShadow: [
           BoxShadow(
@@ -513,15 +586,15 @@ Void _navigateToFinanzas(){
                   child: TextField(
                     decoration: InputDecoration(
                       hintStyle: TextStyle(
-                        color: Color(0xFFF3F3F3).withOpacity(0.7),
+                        color: Color(0xFFF3F3F3).withValues(colorSpace: ColorSpace.sRGB),
                       ),
                       hintText: 'Buscar alumno...',
                       prefixIcon: Icon(
                         Icons.search,
-                        color: Color(0xFFF3F3F3).withOpacity(0.7),
+                        color: Color(0xFFF3F3F3).withValues(colorSpace: ColorSpace.sRGB),
                       ),
                       filled: true,
-                      fillColor: Color(0xFF1B1B1B),
+                      fillColor: Color.fromARGB(255, 122, 122, 122),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide.none,
@@ -536,12 +609,12 @@ Void _navigateToFinanzas(){
           if (!isDesktop) ...[
             SizedBox(height: 12),
             TextField(
-              decoration: InputDecoration(
+              decoration: InputDecoration(                
                 hintText: 'Buscar alumno...',
                 prefixIcon: Icon(Icons.search),
                 filled: true,
 
-                fillColor: Color(0xFF343434).withOpacity(0.2),
+                fillColor: Color.fromARGB(255, 122, 122, 122).withValues(colorSpace: ColorSpace.sRGB),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -558,7 +631,7 @@ Void _navigateToFinanzas(){
       ),
     );
   }
-
+//Listado dashboard principal 
   Widget _buildStudentsTable() {
     // Desktop: Tabla
     return Table(
@@ -573,15 +646,15 @@ Void _navigateToFinanzas(){
         // Header
         TableRow(
           decoration: BoxDecoration(
-            color: Color(0xFF343434).withOpacity(0.1),
+            color: Color(0xFF343434).withValues(colorSpace: ColorSpace.sRGB),
             borderRadius: BorderRadius.circular(8),
           ),
           children: [
             _buildTableCell('Nombre', isHeader: true),
-            _buildTableCell('Email', isHeader: true),
+            _buildTableCell('Email', isHeader: false),
             _buildTableCell('Plan', isHeader: true),
-            _buildTableCell('Estado', isHeader: true),
-            _buildTableCell('Acciones', isHeader: true),
+            _buildTableCell('Estado', isHeader: false),
+            _buildTableCell('Acciones', isHeader: false),
           ],
         ),
         // Datos de ejemplo
@@ -645,7 +718,7 @@ Void _navigateToFinanzas(){
       ),
     );
   }
-
+//Cada card especifica del dashboard principal de cada cliente
   Widget _buildStudentCards() {
     // Mobile: Cards
     return Column(
@@ -680,7 +753,7 @@ Void _navigateToFinanzas(){
       decoration: BoxDecoration(
         color: const Color(0xFFF3F3F3),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Color(0xFFF3F3F3).withOpacity(0.7)),
+        border: Border.all(color: Color(0xFFF3F3F3).withValues(colorSpace: ColorSpace.sRGB)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,10 +793,12 @@ Void _navigateToFinanzas(){
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
+              //Editar alumno
               IconButton(
                 icon: Icon(Icons.edit, color: Colors.black),
                 onPressed: () {},
               ),
+              //Eliminar
               IconButton(
                 icon: Icon(Icons.delete, color: Colors.red),
                 onPressed: () {},
@@ -734,7 +809,140 @@ Void _navigateToFinanzas(){
       ),
     );
   }
+Widget _buildPendingUsersSheet(){
+  return Padding(
+  padding: EdgeInsets.all(16),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('Solicitudes Pendientes',
+      style: TextStyle(
+      color: Colors.white,
+      fontSize: 20,
+      fontWeight: FontWeight.bold, 
+      ),
+      ),
+      SizedBox(height: 16,),
+      Expanded(child: _pendingUsers.isEmpty
+      ? Center(
+        child: Text('No hay solicitudes pendientes',
+        style: TextStyle(color: Colors.white54),
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: _pendingUsers.length,
+                  itemBuilder: (context, index) {
+                    final user = _pendingUsers[index];
+                    return _buildPendingUserCard(user);
+                  },
+                ),
+        ),
+      ],
+    ),
+  );
+}
+Widget _buildPendingUserCard(UserModel user){
+  return Card(
+    color: Colors.black,
+    margin: EdgeInsets.only(bottom:12),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    child: Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.person, color: Colors.amberAccent),
+              SizedBox(width: 8),
+              Text(
+                user.name ?? 'Sin nombre',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.email, color: Colors.white54, size: 16),
+              SizedBox(width: 8),
+              Text(user.email, style: TextStyle(color: Colors.white70)),
+            ],
+          ),
+          SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.work, color: Colors.white54, size: 16),
+              SizedBox(width: 8),
+              Text(
+                user.workArea?.value ?? 'Sin área',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+          SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.calendar_today, color: Colors.white54, size: 16),
+              SizedBox(width: 8),
+              Text(
+                '${user.createdAt.day}/${user.createdAt.month}/${user.createdAt.year}',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+          SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: Icon(Icons.check),
+                  label: Text('Aprobar'),
+                  onPressed: () => _approveUser(user.id),
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: Icon(Icons.close),
+                  label: Text('Rechazar'),
+                  onPressed: () => _rejectUser(user.id),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
+Future<void> _approveUser(String userId) async {
+  final result = await SupabaseService.approveUser(userId);
+  if(result['success'] == true){
+    Navigator.pop(context);
+    await _loadPendingUsers();
+  }
+}
+Future<void> _rejectUser(String userId) async {
+  final result = await SupabaseService.rejectUser(userId);
+  if(result['success'] == true){
+    Navigator.pop(context);
+    await _loadPendingUsers();
+  }
+}
   String _getMonthName(int month) {
     const months = [
       'Enero',

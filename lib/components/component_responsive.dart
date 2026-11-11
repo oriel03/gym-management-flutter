@@ -7,11 +7,11 @@ class ComponentResponsive extends StatelessWidget {
   final Widget desktop;
 
   const ComponentResponsive({
-    Key? key,
+    super.key,
     required this.mobile,
     this.tablet,
     required this.desktop,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

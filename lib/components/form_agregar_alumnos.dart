@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:gym_management_app/services/supabase_service.dart';
 
 class FormAgregarAlumno extends StatefulWidget {
   final String profesorId;
@@ -21,6 +22,7 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
   final _dniController = TextEditingController();
   final _emergencyContactController = TextEditingController();
   final _emergencyPhoneController = TextEditingController();
+  final _medicalConditionsController = TextEditingController();
 
   // Estados
   bool _isLoading = false;
@@ -46,6 +48,7 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
     _dniController.dispose();
     _emergencyContactController.dispose();
     _emergencyPhoneController.dispose();
+    _medicalConditionsController.dispose();
     super.dispose();
   }
 
@@ -54,8 +57,8 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
     try {
       final response = await Supabase.instance.client
           .from('plans')
-          .select('id, name, monthly_price')
-          .eq('is_active', true);
+          .select('id, name, monthly_price');
+          
 
       if (mounted) {
         setState(() {
@@ -72,44 +75,36 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    // Preparar datos
     try {
-      final alumnoData = {
-        'name': _nameController.text.trim(),
-        'last_name': _lastNameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim().isEmpty
-            ? null
-            : _phoneController.text.trim(),
-        'dni': _dniController.text.trim().isEmpty
-            ? null
-            : _dniController.text.trim(),
-        'date_of_birth': _selectedDate?.toIso8601String(),
-        'emergency_contact': _emergencyContactController.text.trim().isEmpty
-            ? null
-            : _emergencyContactController.text.trim(),
-        'emergency_phone': _emergencyPhoneController.text.trim().isEmpty
-            ? null
-            : _emergencyPhoneController.text.trim(),
-        'schedule': _selectedSchedule,
-
-        'plan_id': _selectedPlanId,
-        'plan_start_date': DateTime.now().toIso8601String(),
-        'payment_status': 'Pendiente',
-        'profesor_id': widget.profesorId,
-        'is_active': true,
-        'created_at': DateTime.now().toIso8601String(),
-      };
-
-      await Supabase.instance.client.from('students').insert(alumnoData);
+      // Una sola llamada: la base crea el alumno y su plan juntos, o ninguno.
+      // Los campos vacíos los convierte a null la función SQL.
+      final result = await SupabaseService.createStudentWithPlan(
+        student: {
+          'name': _nameController.text,
+          'last_name': _lastNameController.text,
+          'email': _emailController.text,
+          'dni': _dniController.text,
+          'phone': _phoneController.text,
+          // Solo la fecha (yyyy-mm-dd): la columna es de tipo date.
+          'date_of_birth': _selectedDate?.toIso8601String().split('T').first,
+          'emergency_contact': _emergencyContactController.text,
+          // Antes se guardaba el NOMBRE del contacto en este campo.
+          'emergency_phone': _emergencyPhoneController.text,
+          'medical_conditions': _medicalConditionsController.text,
+        },
+        planId: _selectedPlanId != null ? int.parse(_selectedPlanId!) : null,
+        // El admin llega con profesorId vacío (''), que no es un uuid válido
+        // y hacía fallar el alta del plan. null = "el usuario logueado".
+        profesorId: widget.profesorId.isEmpty ? null : widget.profesorId,
+        preferredShift: _selectedSchedule.toLowerCase(),
+      );
 
       if (!mounted) return;
-
-      _showSnackBar('¡Alumno creado exitosamente!', isError: false);
-      Navigator.pop(context, true); // Retornar true para recargar la lista
-    } catch (e) {
-      if (mounted) {
-        _showSnackBar('Error al crear alumno: $e');
+      if (result['success'] == true) {
+        _showSnackBar('¡Alumno creado exitosamente!', isError: false);
+        Navigator.pop(context, true); // true = recargar la lista
+      } else {
+        _showSnackBar(result['error'] as String);
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -231,16 +226,17 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
               // DNI
               _buildTextField(
                 controller: _dniController,
-                label: 'DNI',
+                label: 'DNI *', // obligatorio en la base (NOT NULL + único)
                 hint: 'Documento de identidad',
                 keyboardType: TextInputType.number,
+                validator: _validateRequired,
               ),
               const SizedBox(height: 16),
 
               // Fecha de nacimiento
               _buildDatePicker(),
               const SizedBox(height: 24),
-
+              // contacto de emergencia
               _buildSectionTitle('Contacto de Emergencia'),
               const SizedBox(height: 16),
 
@@ -261,7 +257,15 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
                 keyboardType: TextInputType.phone,
               ),
               const SizedBox(height: 24),
-
+              _buildSectionTitle('informacion Medica'),
+              const SizedBox(height: 16),
+              _buildTextField(controller: _medicalConditionsController,
+               label: 'Patalogias / Condiciones medicas', 
+               hint: 'Ej: Hipertension, diabetes, lesion de rodilla...',
+               maxLines: 3,
+               ),
+              
+              const SizedBox(height: 24),
               _buildSectionTitle('Información del Plan'),
               const SizedBox(height: 16),
 
@@ -302,12 +306,14 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
     String? Function(String?)? validator,
     TextInputType keyboardType = TextInputType.text,
     TextCapitalization textCapitalization = TextCapitalization.none,
+    int maxLines = 1,
   }) {
     return TextFormField(
       controller: controller,
       validator: validator,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
+      maxLines: maxLines,
       enabled: !_isLoading,
       decoration: InputDecoration(
         labelText: label,
@@ -362,7 +368,7 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
   // Dropdown de planes
   Widget _buildPlanDropdown() {
     return DropdownButtonFormField<String>(
-      value: _selectedPlanId,
+      initialValue: _selectedPlanId,
       decoration: InputDecoration(
         labelText: 'Plan',
         hintText: 'Selecciona un plan',
@@ -376,7 +382,7 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
         DropdownMenuItem<String>(value: null, child: Text('Sin plan asignado')),
         ..._planes.map(
           (plan) => DropdownMenuItem<String>(
-            value: plan['id'],
+            value: plan['id'].toString(),
             child: Text('${plan['name']} - \$${plan['monthly_price']}'),
           ),
         ),
@@ -392,7 +398,7 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
   // Dropdown de horario
   Widget _buildScheduleDropdown() {
     return DropdownButtonFormField<String>(
-      value: _selectedSchedule,
+      initialValue: _selectedSchedule,
       decoration: InputDecoration(
         labelText: 'Horario *',
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -470,4 +476,5 @@ class _FormAgregarAlumnoState extends State<FormAgregarAlumno> {
     }
     return null;
   }
+
 }

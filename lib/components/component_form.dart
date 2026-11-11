@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:gym_management_app/providers/auth_provider.dart';
 import 'package:gym_management_app/services/supabase_service.dart';
+import 'package:provider/provider.dart';
 
 class ComponentForm extends StatefulWidget {
   const ComponentForm({super.key});
@@ -26,9 +28,8 @@ class ComponentFormState extends State<ComponentForm> {
 
   // En tu ComponentForm, cambia esta línea:
   final List<String> _workAreas = [
-    'owner',
-    'big_class_teacher',
-    'small_class_teacher',
+    'big_class',
+    'small_class',
   ];
 
   @override
@@ -53,32 +54,37 @@ class ComponentFormState extends State<ComponentForm> {
   }
 
   // Conexión real con Supabase
+  // Las modificaciones son a raiz de la delegacion de pasos en vez de manejar el la sesion manualmente 
+  // se Delega a AuthProvider que maneja la sesion y navega automaticamente
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final result = await SupabaseService.loginUser(
-        username: _usernameController.text.trim(),
-        pin: _pinController.text, // PIN sin hashear
-      );
+      final success = await context.read<AuthProvider>().login(
+        _usernameController.text.trim(),
+        _pinController.text,
+        );
+      
 
       if (!mounted) return;
 
-      if (result['success']) {
-        _showSnackBar('¡Bienvenido!', isError: false);
-
-        // Navigator.pushReplacementNamed(context, '/home');
-      } else {
-        _showSnackBar(result['error'] ?? 'Error de autenticación');
-      }
-    } catch (e) {
-      if (mounted) _showSnackBar('Error de conexión: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (success) {
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else{
+        final error = context.read<AuthProvider>().errorMessage;
+        _showSnackBar(error ?? 'Credenciales invalidas');
+     }
+    
     }
-  }
+    catch (e) {
+      if(mounted) _showSnackBar('Error de conexion: $e');
+    }finally {
+      if(mounted) setState(() => _isLoading = false);
+    }
+    }
+      
 
   // Conexión real con Supabase
   Future<void> _handleRegister() async {
@@ -249,6 +255,7 @@ class ComponentFormState extends State<ComponentForm> {
         hint: _isLogin ? 'Ingresa tu PIN' : 'Crea un PIN (mín. 6 dígitos)',
         validator: _validatePin,
         obscureText: _obscurePassword,
+        maxLength: 6,
         keyboardType: TextInputType.number,
         suffixIcon: IconButton(
           icon: Icon(
@@ -280,12 +287,12 @@ class ComponentFormState extends State<ComponentForm> {
   Widget _buildWorkAreaDropdown() {
     //map para mostrar mas legible
     final Map<String, String> workAreaLabels = {
-      'owner': 'Propietario',
-      'big_class_teacher': 'Profesor sala Grande',
-      'small_class_teacher': 'Profesor sala Pequeña',
+      'admin': 'Propietario',
+      'big_class': 'Profesor sala Grande',
+      'small_class': 'Profesor sala Pequeña',
     };
     return DropdownButtonFormField<String>(
-      value: _selectedWorkArea,
+      initialValue: _selectedWorkArea,
       decoration: InputDecoration(
         labelText: 'Área de Trabajo',
         hintText: 'Selecciona tu área',
@@ -317,6 +324,7 @@ class ComponentFormState extends State<ComponentForm> {
     TextInputType keyboardType = TextInputType.text,
     TextCapitalization textCapitalization = TextCapitalization.none,
     Widget? suffixIcon,
+    int? maxLength,
   }) {
     return TextFormField(
       controller: controller,
@@ -324,7 +332,8 @@ class ComponentFormState extends State<ComponentForm> {
       obscureText: obscureText,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
-      enabled: !_isLoading, // ✅ Deshabilitar durante carga
+      maxLength: maxLength,
+      enabled: !_isLoading,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -444,20 +453,14 @@ class ComponentFormState extends State<ComponentForm> {
   }
 
   String? _validatePin(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Por favor ingresa el PIN';
-    }
-    final minLength = _isLogin ? 4 : 6;
-    if (value.length < minLength) {
-      return _isLogin
-          ? 'El PIN debe tener al menos 4 dígitos'
-          : 'El PIN debe tener al menos 6 dígitos';
-    }
-    if (!RegExp(r'^\d+$').hasMatch(value)) {
-      return 'El PIN solo debe contener números';
-    }
+    if (value == null || value.isEmpty) return 'Por favor ingresa el PIN';
+    if(!RegExp(r'^\d+$').hasMatch(value)) return 'solo numeros';
+    if(_isLogin && value.length < 4) return 'minimo 4 digitos';
+    if(!_isLogin && value.length != 6) return 'El PIN debe tener exactamente 6 digitos';
     return null;
-  }
+    }
+    
+
 
   String? _validateConfirmPin(String? value) {
     if (!_isLogin) {

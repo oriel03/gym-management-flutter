@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:gym_management_app/components/component_Custom_Button.dart';
-
-import 'package:gym_management_app/components/formAgregarAlumnos.dart';
-import 'package:gym_management_app/screens/dashboard_screen.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:gym_management_app/models/student.dart';
+import 'package:gym_management_app/components/form_agregar_alumnos.dart';
+import 'package:gym_management_app/models/student_details.dart';
+import 'package:gym_management_app/providers/auth_provider.dart';
+import 'package:gym_management_app/screens/auth_wrapper.dart';
+import 'package:gym_management_app/services/supabase_service.dart';
+import 'package:logging/logging.dart';
+import 'package:provider/provider.dart';
 
 class ComponentListadoAlumnos extends StatefulWidget {
-  final String profesorId;
-  const ComponentListadoAlumnos({super.key, required this.profesorId});
+  // null = admin (ve todos los alumnos). Con valor = profesor (solo los suyos).
+  final String? profesorId;
+
+  const ComponentListadoAlumnos({super.key, this.profesorId});
 
   @override
   State<ComponentListadoAlumnos> createState() =>
@@ -16,8 +20,10 @@ class ComponentListadoAlumnos extends StatefulWidget {
 }
 
 class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
-  List<Student> alumnos = [];
-  List<Student> filteredAlumnos = [];
+  static final log = Logger('ComponentListadoAlumnos');
+
+  List<StudentDetails> alumnos = [];
+  List<StudentDetails> filteredAlumnos = [];
   bool isLoading = true;
   String? errorMessage;
   String searchQuery = '';
@@ -36,30 +42,31 @@ class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
     super.dispose();
   }
 
-  //Cargar alumnos desde Supabase
+  // Cargar alumnos: admin ve todos, profesor ve solo los suyos.
   Future<void> _loadAlumnos() async {
     setState(() {
       isLoading = true;
       errorMessage = null;
     });
     try {
-      final response = await Supabase.instance.client
-          .from('students')
-          .select('*, plans(*), users(*)')
-          .eq('profesor_id', widget.profesorId)
-          .eq('is_active', true)
-          .order('created_at', ascending: false);
-
+      final List<StudentDetails> data;
+      if (widget.profesorId == null) {
+        data = await SupabaseService.getAllStudents(activeOnly: true);
+      } else {
+        data = await SupabaseService.getStudentsByProfesor(
+          widget.profesorId!,
+          activeOnly: true,
+        );
+      }
       if (mounted) {
         setState(() {
-          alumnos = (response as List)
-              .map((json) => Student.fromJson(json))
-              .toList();
-          filteredAlumnos = alumnos;
+          alumnos = data;
+          filteredAlumnos = data;
           isLoading = false;
         });
       }
     } catch (e) {
+      log.warning('Error cargando alumnos', e);
       if (mounted) {
         setState(() {
           errorMessage = 'Error al cargar alumnos: $e';
@@ -74,21 +81,22 @@ class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => FormAgregarAlumno(profesorId: widget.profesorId),
+        builder: (context) =>
+            FormAgregarAlumno(profesorId: widget.profesorId ?? ''),
       ),
     );
     if (result == true) {
-      _loadAlumnos();
+      await _loadAlumnos();
     }
   }
 
-  // Eliminar alumno con confirmación
-  Future<void> _onDeleteAlumno(String alumnoId) async {
+  // Desactivar alumno con confirmación (no se borra físicamente)
+  Future<void> _onDeactivateAlumno(int alumnoId) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Confirmar eliminación'),
-        content: Text('¿Estás seguro de que deseas eliminar este alumno?'),
+        title: Text('Confirmar desactivación'),
+        content: Text('¿Estás seguro de que deseas desactivar este alumno?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -96,57 +104,46 @@ class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text('Eliminar', style: TextStyle(color: Colors.red)),
+            child: Text('Desactivar', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
     if (confirm != true) return;
-    try {
-      await Supabase.instance.client
-          .from('students')
-          .delete()
-          .eq('id', alumnoId);
+    if (!mounted) return;
 
-      if (mounted) {
-        setState(() {
-          alumnos.removeWhere((alumno) => alumno.id == alumnoId);
-          filteredAlumnos.removeWhere((alumno) => alumno.id == alumnoId);
-        });
-        _loadAlumnos();
-      }
-    } catch (e) {
+    final result = await SupabaseService.desactivateStudent(alumnoId);
+
+    if (!mounted) return;
+    if (result['success'] == true) {
+      await _loadAlumnos();
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al eliminar alumno: $e'),
+          content: Text(result['error'] ?? 'Error al desactivar alumno'),
           backgroundColor: Colors.redAccent,
         ),
       );
     }
   }
 
-  // Filtrar alumnos según búsqueda
+  // Filtrar alumnos según búsqueda (nombre o email; dni no está en la vista)
   void _filterAlumnos(String query) {
     setState(() {
-      searchQuery = query.toLowerCase();
-      if (query.isEmpty) {
+      searchQuery = query.trim().toLowerCase();
+      if (searchQuery.isEmpty) {
         filteredAlumnos = alumnos;
       } else {
         filteredAlumnos = alumnos.where((alumno) {
-          final fullName = '${alumno.name}${alumno.lastName}'.toLowerCase();
+          final fullName = alumno.fullName.toLowerCase();
           final email = alumno.email.toLowerCase();
-          final dni = alumno.dni?.toLowerCase() ?? '';
-          final planLower = alumno.planId?.toLowerCase() ?? '';
-          return fullName.contains(searchQuery) ||
-              email.contains(searchQuery) ||
-              dni.contains(searchQuery) ||
-              planLower.contains(searchQuery);
+          return fullName.contains(searchQuery) || email.contains(searchQuery);
         }).toList();
       }
     });
   }
 
-  // Mostrar diálogo de filtros (próximamente) -> Ver de que forma
+  // Mostrar diálogo de filtros (próximamente)
   void _showfilterDialog() {
     showDialog(
       context: context,
@@ -223,6 +220,14 @@ class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
       );
     }
     final displayAlumnos = searchQuery.isNotEmpty ? filteredAlumnos : alumnos;
+    if (displayAlumnos.isEmpty) {
+      return Center(
+        child: Text(
+          'Sin resultados para "$searchQuery".',
+          style: TextStyle(fontSize: isMobile ? 14 : 16),
+        ),
+      );
+    }
     return ListView.builder(
       itemCount: displayAlumnos.length,
       itemBuilder: (context, index) {
@@ -231,7 +236,7 @@ class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
       },
     );
   }
-
+//AGREGAR NAVIGATIONTRAIL
   // Construir widget principal
   @override
   Widget build(BuildContext context) {
@@ -281,7 +286,8 @@ class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
     return Row(
       children: [
         IconButton(
-          onPressed: () => DashboardScreen(),
+          //CORREGIR LOGICA DEL BOTON BACK
+          onPressed: () => const AuthWrapper(),
           icon: Icon(Icons.arrow_back),
           tooltip: 'Volver',
         ),
@@ -361,7 +367,7 @@ class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
           text: 'Filtro',
           backgroundColor: Colors.black54,
           textColor: Colors.white70,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w600, 
           icon: Icon(Icons.filter_list, color: Colors.white70),
         ),
         SizedBox(width: 4),
@@ -388,9 +394,39 @@ class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
       ],
     );
   }
-
+  
+  // Calcular edad a partir de la fecha de nacimiento
+  String _formatAge(DateTime? dateOfBirth) {
+    if (dateOfBirth == null) return 'N/D';
+    final now = DateTime.now();
+    var age = now.year - dateOfBirth.year;
+    if (now.month < dateOfBirth.month ||
+        (now.month == dateOfBirth.month && now.day < dateOfBirth.day)) {
+      age--;
+    }
+    return '$age años';
+  }
+  // Abre la hoja de edición. Si se guardó (devuelve true), recarga la lista.
+  // Antes el botón "Guardar" solo cerraba la hoja: no se guardaba nada.
+  Future<void> _onEditAlumno(StudentDetails alumno) async {
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _EditAlumnoSheet(alumno: alumno),
+    );
+    if (saved == true) await _loadAlumnos();
+  }
   // Construir tarjeta de alumno
-  Widget _buildStudentTile(Student alumno, bool isWideScreen, bool isMobile) {
+  Widget _buildStudentTile(
+    StudentDetails alumno,
+    bool isWideScreen,
+    bool isMobile,
+  ) {
+    final isAdmin = context.read<AuthProvider>().isAdmin;
+//card de los alumnos cargados
     return Card(
       margin: EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
@@ -399,7 +435,7 @@ class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
           vertical: isMobile ? 4 : 8,
         ),
         title: Text(
-          '${alumno.name} ${alumno.lastName}',
+          alumno.fullName,
           style: TextStyle(
             fontSize: isMobile ? 14 : 16,
             fontWeight: FontWeight.w500,
@@ -407,19 +443,195 @@ class _ComponentListadoAlumnosState extends State<ComponentListadoAlumnos> {
         ),
         subtitle: Padding(
           padding: EdgeInsets.only(top: 4),
-          child: Text(
-            'Edad: ${alumno.age}, Plan: ${alumno.planId}',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+            _formatAge(alumno.dateOfBirth),
             style: TextStyle(fontSize: isMobile ? 12 : 14),
           ),
+          SizedBox(height: 2),
+          //VER QUE MAS AGREGAR A LA CARD
+          Text(
+            'Plan: ${alumno.planName ?? "Sin plan"}'
+            '${alumno.isPlanExpired ? " (vencido)" : ""}'
+            '${alumno.isPlanAboutToExpire ? " (por vencer)" : ""}',
+            style: TextStyle(fontSize: isMobile ? 12 : 14),
+          ),
+          if(alumno.medicalConditions != null && alumno.medicalConditions!.isNotEmpty) ...[
+            SizedBox(height: 2),
+            Text(alumno.medicalConditions ?? "Sin observaciones",
+            style: TextStyle(
+              fontSize: isMobile ? 12 : 14, 
+              color: Colors.orange.shade800,
+              fontWeight: FontWeight.w500,
+            ),)
+          ]
+           ],
+          ),
         ),
-        trailing: IconButton(
-          icon: Icon(Icons.delete, color: Colors.red),
-          onPressed: () => _onDeleteAlumno(alumno.id),
+        //MODIFICAR PARA AGREGAR LOS DOS ICONOS, EN ESTE CASO EDITA CUALQUIERA ELIMINA SOLO ADMIN
+        // Solo el admin puede desactivar alumnos (coincide con la policy RLS)
+        // Trailing con dos botones de acción dentro de un Row
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Cualquier usuario autorizado puede editar
+        IconButton(
+          icon: Icon(Icons.edit, color: Colors.blue),
+          tooltip: 'Editar alumno',
+          onPressed:() => _onEditAlumno(alumno),
           iconSize: isMobile ? 20 : 24,
         ),
-        onTap: () {
-          // Aquí puedes navegar a detalles del alumno
-        },
+        // Solo el admin puede desactivar/eliminar
+        if (isAdmin)
+          IconButton(
+            icon: Icon(Icons.block, color: Colors.red),
+            tooltip: 'Desactivar alumno',
+            onPressed: () => _onDeactivateAlumno(alumno.studentId),
+            iconSize: isMobile ? 20 : 24,
+          ),
+          
+      ],
+    ),
+    onTap: () {
+      // Navegación a detalles del alumno
+    },
+  ),
+);
+
+  }
+}
+// Hoja de edición de alumno. Es un StatefulWidget propio para poder crear
+// y liberar (dispose) los TextEditingController correctamente.
+class _EditAlumnoSheet extends StatefulWidget {
+  const _EditAlumnoSheet({required this.alumno});
+  final StudentDetails alumno;
+
+  @override
+  State<_EditAlumnoSheet> createState() => _EditAlumnoSheetState();
+}
+
+class _EditAlumnoSheetState extends State<_EditAlumnoSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final _name = TextEditingController(text: widget.alumno.firstName);
+  late final _lastName = TextEditingController(text: widget.alumno.lastName);
+  late final _email = TextEditingController(text: widget.alumno.email);
+  late final _phone = TextEditingController(text: widget.alumno.phone ?? '');
+  late final _emergency =
+      TextEditingController(text: widget.alumno.emergencyContact ?? '');
+  late final _medical =
+      TextEditingController(text: widget.alumno.medicalConditions ?? '');
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    for (final c in [_name, _lastName, _email, _phone, _emergency, _medical]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  String? _required(String? v) =>
+      (v == null || v.trim().isEmpty) ? 'Campo obligatorio' : null;
+
+  String? _nullIfEmpty(TextEditingController c) =>
+      c.text.trim().isEmpty ? null : c.text.trim();
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    final result = await SupabaseService.updateStudent(widget.alumno.studentId, {
+      'name': _name.text.trim(),
+      'last_name': _lastName.text.trim(),
+      'email': _email.text.trim().toLowerCase(),
+      'phone': _nullIfEmpty(_phone),
+      'emergency_contact': _nullIfEmpty(_emergency),
+      'medical_conditions': _nullIfEmpty(_medical),
+    });
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Alumno actualizado')),
+      );
+      Navigator.pop(context, true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['error'] as String),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
+  }
+
+  Widget _field(TextEditingController c, String label,
+      {String? Function(String?)? validator,
+      TextInputType? keyboard,
+      int maxLines = 1}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: TextFormField(
+        controller: c,
+        validator: validator,
+        keyboardType: keyboard,
+        maxLines: maxLines,
+        enabled: !_saving,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Editar alumno',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              _field(_name, 'Nombre *', validator: _required),
+              _field(_lastName, 'Apellido *', validator: _required),
+              _field(_email, 'Email *',
+                  validator: _required, keyboard: TextInputType.emailAddress),
+              _field(_phone, 'Teléfono', keyboard: TextInputType.phone),
+              _field(_emergency, 'Contacto de emergencia'),
+              _field(_medical, 'Condiciones médicas', maxLines: 3),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _saving ? null : () => Navigator.pop(context),
+                    child: const Text('Cancelar'),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: _saving ? null : _save,
+                    child: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Text('Guardar'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
